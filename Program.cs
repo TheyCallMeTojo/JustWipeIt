@@ -170,14 +170,18 @@ namespace JustWipeIt
             aes.IV = new byte[16]; // Set AES initialization vector
 
             var buffer = new byte[BufferSize];
+            long totalBytesWritten = 0; // Track the total bytes written
+
             using var cryptoStream = new CryptoStream(
                 new FileStream($"{driveLetter}scrubbed.bin", FileMode.OpenOrCreate),
                 aes.CreateEncryptor(),
                 CryptoStreamMode.Write);
-            while (cryptoStream.Position < size)
+
+            while (totalBytesWritten < size)
             {
                 cryptoStream.Write(buffer, 0, buffer.Length);
-                task.Increment(BufferSize); // Update progress
+                totalBytesWritten += buffer.Length; // Update the bytes written
+                task.Increment(buffer.Length); // Update progress
             }
         }
     }
