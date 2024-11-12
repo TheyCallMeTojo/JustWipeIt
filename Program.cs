@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+﻿using JustWipeIt.Helpers;
 using Spectre.Console;
 
 namespace JustWipeIt
@@ -52,18 +52,20 @@ namespace JustWipeIt
             // Define the available wiping methods and their corresponding actions
             var availableTasks = new (string Name, Action<string, long, ProgressTask> Action)[]
             {
-                ("Overwrite with Zeros", (drive, size, task) => OverwriteWithPattern(drive, size, task, 0x00)),
-                ("Overwrite with Ones", (drive, size, task) => OverwriteWithPattern(drive, size, task, 0xFF)),
+                ("Overwrite with Zeros",
+                    (drive, size, task) => WipeHelper.OverwriteWithPattern(drive, size, task, 0x00)),
+                ("Overwrite with Ones",
+                    (drive, size, task) => WipeHelper.OverwriteWithPattern(drive, size, task, 0xFF)),
                 ("Overwrite with Pattern 10101010",
-                    (drive, size, task) => OverwriteWithPattern(drive, size, task, 0xAA)),
+                    (drive, size, task) => WipeHelper.OverwriteWithPattern(drive, size, task, 0xAA)),
                 ("Overwrite with Pattern 01010101",
-                    (drive, size, task) => OverwriteWithPattern(drive, size, task, 0x55)),
-                ("Overwrite with Random Data", OverwriteWithRandomData),
-                ("Overwrite with SHA-256", OverwriteWithSha256),
-                ("Overwrite with AES Encryption", OverwriteWithAes)
+                    (drive, size, task) => WipeHelper.OverwriteWithPattern(drive, size, task, 0x55)),
+                ("Overwrite with Random Data", WipeHelper.OverwriteWithRandomData),
+                ("Overwrite with SHA-256", WipeHelper.OverwriteWithSha256),
+                ("Overwrite with AES Encryption", WipeHelper.OverwriteWithAes)
             };
 
-            // Prompt user to select one or more wiping methods from the list
+            // Prompt user to select one or more wiping methods from the lis
             var selectedTasks = AnsiConsole.Prompt(
                 new MultiSelectionPrompt<(string Name, Action<string, long, ProgressTask> Action)>()
                     .Title("Select the [green]wiping methods[/] to use:")
@@ -117,71 +119,6 @@ namespace JustWipeIt
 
                         task.Action(driveLetter, driveSize, progressTask); // Execute wiping action
                     });
-            }
-        }
-
-        // Method to overwrite drive with a specified byte pattern
-        private static void OverwriteWithPattern(string driveLetter, long size, ProgressTask task, byte pattern)
-        {
-            var buffer = new byte[BufferSize];
-            Array.Fill(buffer, pattern); // Fill buffer with specified pattern
-
-            using var fs = new FileStream($"{driveLetter}scrubbed.bin", FileMode.OpenOrCreate);
-            while (fs.Position < size)
-            {
-                fs.Write(buffer, 0, buffer.Length);
-                task.Increment(BufferSize); // Update progress
-            }
-        }
-
-        // Method to overwrite drive with random data
-        private static void OverwriteWithRandomData(string driveLetter, long size, ProgressTask task)
-        {
-            var random = new Random();
-            var buffer = new byte[BufferSize];
-
-            using var fs = new FileStream($"{driveLetter}scrubbed.bin", FileMode.OpenOrCreate);
-            while (fs.Position < size)
-            {
-                random.NextBytes(buffer); // Fill buffer with random bytes
-                fs.Write(buffer, 0, buffer.Length);
-                task.Increment(BufferSize); // Update progress
-            }
-        }
-
-        // Method to overwrite drive with SHA-256 hash of an empty buffer
-        private static void OverwriteWithSha256(string driveLetter, long size, ProgressTask task)
-        {
-            var buffer = new byte[BufferSize];
-            using var fs = new FileStream($"{driveLetter}scrubbed.bin", FileMode.OpenOrCreate);
-            while (fs.Position < size)
-            {
-                var hash = SHA256.HashData(buffer); // Generate SHA-256 hash
-                fs.Write(hash, 0, hash.Length);
-                task.Increment(hash.Length); // Update progress
-            }
-        }
-
-        // Method to overwrite drive using AES encryption
-        private static void OverwriteWithAes(string driveLetter, long size, ProgressTask task)
-        {
-            using var aes = Aes.Create();
-            aes.Key = new byte[32]; // Set AES key
-            aes.IV = new byte[16]; // Set AES initialization vector
-
-            var buffer = new byte[BufferSize];
-            long totalBytesWritten = 0; // Track the total bytes written
-
-            using var cryptoStream = new CryptoStream(
-                new FileStream($"{driveLetter}scrubbed.bin", FileMode.OpenOrCreate),
-                aes.CreateEncryptor(),
-                CryptoStreamMode.Write);
-
-            while (totalBytesWritten < size)
-            {
-                cryptoStream.Write(buffer, 0, buffer.Length);
-                totalBytesWritten += buffer.Length; // Update the bytes written
-                task.Increment(buffer.Length); // Update progress
             }
         }
     }
